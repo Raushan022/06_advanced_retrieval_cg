@@ -29,7 +29,7 @@ def retrieve_documents_bm25(
    bm25,
    chunks,
    query,
-   k=5,
+   k=10,
 ):
    """
    Retrieve top-k chunks using BM25.

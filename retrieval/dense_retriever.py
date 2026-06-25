@@ -1,7 +1,6 @@
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# from config.settings import EMBEDDING_MODEL
 from config.settings import EMBEDDING_MODEL
 
 def create_dense_retriever(chunks):
@@ -19,7 +18,7 @@ def create_dense_retriever(chunks):
 def retrieve_documents_dense(
       vector_store,
       query,
-      k=5
+      k=10,
 ):
    return vector_store.similarity_search(
       query,
