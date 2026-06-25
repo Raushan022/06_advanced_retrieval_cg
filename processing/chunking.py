@@ -15,4 +15,6 @@ def chunk_documets(documents):
       chunk_overlap=CHUNK_OVERLAP,
    )
 
-   return text_splitter.split_documents(documents)
+   chunks = text_splitter.split_documents(documents)
+
+   return chunks
