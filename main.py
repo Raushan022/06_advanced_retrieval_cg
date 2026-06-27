@@ -5,18 +5,27 @@ from data.urls import URLS
 from loaders.web_loader import load_web_documents
 from loaders.pdf_loader import load_pdf_documets
 
-from cleaning.content_cleaner import clean_documents
-
+from processing.metadata import normalize_metadata
 from processing.chunking import chunk_documets
 
-from retrieval.bm25_retriever import create_bm25_retriever, retrieve_documents_bm25
-from retrieval.dense_retriever import create_dense_retriever, retrieve_documents_dense
+from cleaning.content_cleaner import clean_documents
 
-from retrieval.hybrid_retriever import reciprocal_rank_fusion
+from vectorstore.faiss_manager import load_or_create_vector_store
+
+from retrieval.bm25_retriever import create_bm25_retriever
+from retrieval.reranker import create_reranker
+from retrieval.retrieval_service import retrieve_documents
+
+from rag.context_builder import build_context
+
+from rag.generator import generate_answer
 
 load_dotenv()
 
 def main():
+   
+   print("Loading documents...")
+
    pdf_documents = load_pdf_documets()
    web_documents = load_web_documents(URLS)
 
@@ -24,58 +33,48 @@ def main():
 
    print(f"Documents Loaded: {len(documents)}")
 
-   cleaned_documents = clean_documents(documents)
-
-   chunks = chunk_documets(cleaned_documents)
+   documents = normalize_metadata(documents)
+   documents = clean_documents(documents)
+   chunks = chunk_documets(documents)
 
    print(f"Chunks Created: {len(chunks)}")
 
-   print("\nSample Chunk:\n")
-
-   print(chunks[0].page_content[:500])
+   vector_store = load_or_create_vector_store(chunks)
 
    bm25 = create_bm25_retriever(chunks)
-   dense_retriever = create_dense_retriever(chunks)
+   reranker = create_reranker()
 
-   query = "What is a retriever?"
+   print("\nAdvanced Retrieval System Ready!")
 
-   bm25_results = retrieve_documents_bm25(
-      bm25=bm25,
-      chunks=chunks,
-      query=query,
-      k=3,
-   )
+   while True:
+      query = input("\nAsk: ").strip()
 
-   dense_results = retrieve_documents_dense(
-      vector_store=dense_retriever,
-      query=query,
-      k=3,
-   )
+      if query.lower() in ["exit", "quit", "q"]:
+         print("Goodbye!!")
+         break
 
-   hybrid_results = reciprocal_rank_fusion(
-      [
-         bm25_results,
-         dense_results
-      ]
-   )
+      retrieved_docs = retrieve_documents(
+         query=query,
+         bm25=bm25,
+         chunks=chunks,
+         vector_store=vector_store,
+         reranker=reranker
+      )
 
-   print("\n=== BM25 ===")
+      context = build_context(retrieved_docs)
+      answer = generate_answer(query=query, context=context)
 
-   for doc in bm25_results:
-      print(doc.page_content[:200])
+      print("\nAnswer:\n")
+      print(answer)
 
-   print("\n=== DENSE ===")
+      print("\nSources:")
 
-   for doc in dense_results:
-      print(doc.page_content[:200])
+      sources = {
+         doc.metadata.get("source_name", "Unknown") for doc in retrieved_docs
+      }
 
-   print("\n=== HYBRID RESULTS ===")
-
-   for doc in hybrid_results[:3]:
-      print(doc.page_content[:200])
-      print("\n" + "-" * 50 + "\n")
-
-   
+      for source in sources:
+         print(f"- {source}")
     
 if __name__ == "__main__":
    main()
